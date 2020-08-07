@@ -1,3 +1,5 @@
+/*** includes ***/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -5,7 +7,11 @@
 #include <unistd.h> 	/* Standard symbolic constants and types */
 #include <termios.h> 	/* Terminal interface */
 
+/*** data ***/
+
 struct termios orig_termios;
+
+/*** terminal ***/
 
 void die(const char *s)
 {
@@ -36,6 +42,8 @@ void raw_mode()
 
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
+
+/*** init ***/
 
 int main()
 {
