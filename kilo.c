@@ -42,7 +42,7 @@ void ab_free(struct abuf *);
 void refresh_screen(void);
 int get_cursor_pos(int *, int *);
 int get_windowsize(int *, int *);
-void draw_rows(void);
+void draw_rows(struct abuf *);
 void process_keypress(void);
 void init_editor(void);
 
@@ -117,6 +117,7 @@ void ab_free(struct abuf *ab)
 
 void refresh_screen(void)
 {
+	struct abuf ab = ABUF_INIT;
 	/* Write an escape sequence to the terminal.
 	 * We are using VT100 escape sequences here.
 	 * \x1b is the escape character (27 in decimal).
@@ -124,14 +125,17 @@ void refresh_screen(void)
 	 * J means to erase in display.
 	 * The argument 2 to the J command means clear the entire screen.
 	 */
-	write(STDOUT_FILENO, "\x1b[2J", 4); 	/* clear the screen */
+	ab_append(&ab, "\x1b[2J", 4); 	/* clear the screen */
 	/* H command means to position the cursor.
 	 * Normally takes two arguments [row;colH for (row, col).
 	 */
-	write(STDOUT_FILENO, "\x1b[H", 3);	/* reposition the cursor to position 1;1 */
+	ab_append(&ab, "\x1b[H", 3);	/* reposition the cursor to position 1;1 */
 
-	draw_rows();
-	write(STDOUT_FILENO, "\x1b[H", 3);
+	draw_rows(&ab);
+	ab_append(&ab, "\x1b[H", 3);
+
+	write(STDOUT_FILENO, ab.b, ab.len);
+	ab_free(&ab);
 }
 
 int get_cursor_pos(int *rows, int *cols)
@@ -177,12 +181,12 @@ int get_windowsize(int *rows, int *cols)
 	}
 }
 
-void draw_rows(void)
+void draw_rows(struct abuf *ab)
 {
 	int y;
 	for (y = 0; y < E.screenrows; y++) {
-		write(STDOUT_FILENO, "~", 1);
-		if (y < E.screenrows - 1) write(STDOUT_FILENO, "\r\n", 2);
+		ab_append(ab, "~", 1);
+		if (y < E.screenrows - 1) ab_append(ab, "\r\n", 2);
 	}
 }
 
