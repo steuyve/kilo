@@ -42,19 +42,39 @@ void raw_mode()
 	raw.c_oflag &= ~(OPOST);
 	raw.c_cflag |= (CS8);
 	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+
+	/* set timeout for read */
 	raw.c_cc[VMIN] = 0;	/* min number of bytes of input needed before read() can return. */
 	raw.c_cc[VTIME] = 1;	/* max time to wait before read() returns, in tenths of a question. */
 
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
-char read_key() {
+char read_key()
+{
 	int nread;
 	char c;
 	while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
 		if (nread == -1 && errno != EAGAIN) die("read");
 	}
 	return c;
+}
+
+void refresh_screen()
+{
+	/* Write an escape sequence to the terminal.
+	 * We are using VT100 escape sequences here.
+	 * \x1b is the escape character (27 in decimal).
+	 * Escape sequences are always the escape character followed by [
+	 * J means to erase in display.
+	 * The argument 2 to the J command means clear the entire screen.
+	 */
+	write(STDOUT_FILENO, "\x1b[2J", 4); 	/* clear the screen */
+
+	/* H command means to position the cursor.
+	 * Normally takes two arguments [row;colH for (row, col).
+	 */
+	write(STDOUT_FILENO, "\x1b[H", 3);	/* reposition the cursor to position 1;1 */ 
 }
 
 /*** input ***/
@@ -75,6 +95,7 @@ int main()
 {
 	raw_mode();
 	while (1) {
+		refresh_screen();
 		process_keypress();
 	}
 
