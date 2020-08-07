@@ -7,6 +7,11 @@
 #include <unistd.h> 	/* Standard symbolic constants and types */
 #include <termios.h> 	/* Terminal interface */
 
+/*** defines ***/
+
+/* convert key 'char' to CTRL-char */
+#define CTRL_KEY(k) ((k) & 0x1f) /* bitwise AND with 00011111, setting last 3 bits to 0. */
+
 /*** data ***/
 
 struct termios orig_termios;
@@ -56,7 +61,7 @@ int main()
 		} else {
 			printf("%d ('%c')\r\n", c, c);
 		}
-		if (c == 'q')
+		if (c == CTRL_KEY('q'))
 			break;
 	}
 
