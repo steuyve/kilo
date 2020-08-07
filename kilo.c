@@ -6,6 +6,7 @@
 #include <ctype.h> 	/* Character handling functions */
 #include <unistd.h> 	/* Standard symbolic constants and types */
 #include <termios.h> 	/* Terminal interface */
+#include <sys/ioctl.h>	/* IO on streams devices */
 
 /*** defines ***/
 
@@ -19,12 +20,16 @@ void restore_termios_config(void);
 void raw_mode(void);
 char read_key(void);
 void refresh_screen(void);
+int get_windowsize(int *, int *);
 void draw_rows(void);
 void process_keypress(void);
+void init_editor(void);
 
 /*** data ***/
 
 struct editor_config {
+	int screenrows;
+	int screencols;
 	struct termios orig_termios;
 };
 
@@ -97,11 +102,25 @@ void refresh_screen(void)
 	write(STDOUT_FILENO, "\x1b[H", 3);
 }
 
+int get_windowsize(int *rows, int *cols)
+{
+	struct winsize ws;
+
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+		return -1;
+	} else {
+		*cols = ws.ws_col;
+		*rows = ws.ws_row;
+		return 0;
+	}
+}
+
 void draw_rows(void)
 {
 	int y;
-	for (y = 0; y < 24; y++) {
-		write(STDOUT_FILENO, "~\r\n", 3);
+	for (y = 0; y < E.screenrows; y++) {
+		write(STDOUT_FILENO, "~", 1);
+		if (y < E.screenrows - 1) write(STDOUT_FILENO, "\r\n", 2);
 	}
 }
 
@@ -121,9 +140,16 @@ void process_keypress(void) {
 
 /*** init ***/
 
+void init_editor(void)
+{
+	if (get_windowsize(&E.screenrows, &E.screencols) == -1) die("get_windowsize");
+}
+
 int main(void)
 {
 	raw_mode();
+	init_editor();
+
 	while (1) {
 		refresh_screen();
 		process_keypress();
