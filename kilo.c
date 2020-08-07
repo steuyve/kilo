@@ -11,6 +11,8 @@
 
 /*** defines ***/
 
+#define KILO_VERSION "0.0.1"
+
 /* convert key 'char' to CTRL-char */
 #define CTRL_KEY(k) ((k) & 0x1f) /* bitwise AND with 00011111, setting last 3 bits to 0. */
 
@@ -189,7 +191,20 @@ void draw_rows(struct abuf *ab)
 {
 	int y;
 	for (y = 0; y < E.screenrows; y++) {
-		ab_append(ab, "~", 1);
+		if (y == E.screenrows / 3) {
+			char welcome[80];
+			int welcomelen = snprintf(welcome, sizeof(welcome), "Kilo editor -- version %s", KILO_VERSION);
+			if (welcomelen > E.screencols) welcomelen = E.screencols;
+			int padding = (E.screencols - welcomelen) / 2;
+			if (padding) {
+				ab_append(ab, "~", 1);
+				padding--;
+			}
+			while (padding--) ab_append(ab, " ", 1);
+			ab_append(ab, welcome, welcomelen);
+		} else {
+			ab_append(ab, "~", 1);
+		}
 
 		/* K command erases the current line.
 		 * Default argument (0) erases to the right of the cursor.
