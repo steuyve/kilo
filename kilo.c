@@ -29,6 +29,7 @@ struct termios orig_termios;
 
 void die(const char *s)
 {
+	refresh_screen();
 	perror(s);
 	exit(1);
 }
@@ -93,6 +94,7 @@ void process_keypress(void) {
 
 	switch (c) {
 		case CTRL_KEY('q'):
+			refresh_screen();
 			exit(0);
 			break;
 	}
