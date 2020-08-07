@@ -24,13 +24,13 @@ void die(const char *s)
 	exit(1);
 }
 
-void restore_termios_config()
+void restore_termios_config(void)
 {
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
 		die("tcsetattr");
 }
 
-void raw_mode()
+void raw_mode(void)
 {
 	// save termios config
 	if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) die("tcgetattr");
@@ -50,7 +50,7 @@ void raw_mode()
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
-char read_key()
+char read_key(void)
 {
 	int nread;
 	char c;
@@ -60,7 +60,7 @@ char read_key()
 	return c;
 }
 
-void refresh_screen()
+void refresh_screen(void)
 {
 	/* Write an escape sequence to the terminal.
 	 * We are using VT100 escape sequences here.
@@ -79,7 +79,7 @@ void refresh_screen()
 
 /*** input ***/
 
-void process_keypress() {
+void process_keypress(void) {
 	char c = read_key();
 
 	switch (c) {
@@ -91,7 +91,7 @@ void process_keypress() {
 
 /*** init ***/
 
-int main()
+int main(void)
 {
 	raw_mode();
 	while (1) {
