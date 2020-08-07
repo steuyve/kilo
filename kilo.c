@@ -118,6 +118,9 @@ void ab_free(struct abuf *ab)
 void refresh_screen(void)
 {
 	struct abuf ab = ABUF_INIT;
+
+	ab_append(&ab, "\x1b[?25l", 6);	/* l and h commands hide and show the cursor respectively. */
+
 	/* Write an escape sequence to the terminal.
 	 * We are using VT100 escape sequences here.
 	 * \x1b is the escape character (27 in decimal).
@@ -133,6 +136,7 @@ void refresh_screen(void)
 
 	draw_rows(&ab);
 	ab_append(&ab, "\x1b[H", 3);
+	ab_append(&ab, "\x1b[?25h", 6);
 
 	write(STDOUT_FILENO, ab.b, ab.len);
 	ab_free(&ab);
