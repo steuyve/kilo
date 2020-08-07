@@ -18,6 +18,13 @@
 
 /*** data ***/
 
+enum editor_key {
+	ARROW_LEFT = 1000,
+	ARROW_RIGHT,
+	ARROW_UP,
+	ARROW_DOWN
+};
+
 struct editor_config {
 	int cx, cy;
 	int screenrows;
@@ -27,10 +34,10 @@ struct editor_config {
 
 struct editor_config E;
 
-struct abuf {
+typedef struct abuf {
 	char *b;
 	int len;
-};
+} abuf ;
 
 #define ABUF_INIT {NULL, 0}
 
@@ -39,14 +46,14 @@ struct abuf {
 void die(const char *);
 void restore_termios_config(void);
 void raw_mode(void);
-char read_key(void);
-void ab_append(struct abuf *, const char *, int);
-void ab_free(struct abuf *);
+int read_key(void);
+void ab_append(abuf *, const char *, int);
+void ab_free(abuf *);
 void refresh_screen(void);
 int get_cursor_pos(int *, int *);
 int get_windowsize(int *, int *);
-void draw_rows(struct abuf *);
-void move_cursor(char);
+void draw_rows(abuf *);
+void move_cursor(int);
 void process_keypress(void);
 void init_editor(void);
 
@@ -86,20 +93,39 @@ void raw_mode(void)
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
-char read_key(void)
+int read_key(void)
 {
 	int nread;
 	char c;
 	while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
 		if (nread == -1 && errno != EAGAIN) die("read");
 	}
-	return c;
+
+	if (c == '\x1b') {
+		char seq[3];
+
+		if (read(STDIN_FILENO, &seq[0], 1) != 1) return '\x1b';
+		if (read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b';
+
+		if (seq[0] == '[') {
+			switch (seq[1]) {
+				case 'A': return ARROW_UP;
+				case 'B': return ARROW_DOWN;
+				case 'C': return ARROW_RIGHT;
+				case 'D': return ARROW_LEFT;
+			}
+		}
+
+		return '\x1b';
+	} else {
+		return c;
+	}
 }
 
 /*** append buffer ***/
 /* Collect planned writes to a buffer to be written to STDOUT_FILENO all at once. */
 
-void ab_append(struct abuf *ab, const char *s, int len)
+void ab_append(abuf *ab, const char *s, int len)
 {
 	/* first make sure we have enough space. */
 	char *new = realloc(ab->b, ab->len + len);
@@ -111,7 +137,7 @@ void ab_append(struct abuf *ab, const char *s, int len)
 	ab->len += len;
 }
 
-void ab_free(struct abuf *ab)
+void ab_free(abuf *ab)
 {
 	free(ab->b);
 	ab->len = 0;
@@ -121,7 +147,7 @@ void ab_free(struct abuf *ab)
 
 void refresh_screen(void)
 {
-	struct abuf ab = ABUF_INIT;
+	abuf ab = ABUF_INIT;
 
 	ab_append(&ab, "\x1b[?25l", 6);	/* l and h commands hide and show the cursor respectively. */
 
@@ -193,7 +219,7 @@ int get_windowsize(int *rows, int *cols)
 	}
 }
 
-void draw_rows(struct abuf *ab)
+void draw_rows(abuf *ab)
 {
 	int y;
 	for (y = 0; y < E.screenrows; y++) {
@@ -223,7 +249,7 @@ void draw_rows(struct abuf *ab)
 /*** input ***/
 
 void process_keypress(void) {
-	char c = read_key();
+	int c = read_key();
 
 	switch (c) {
 		case CTRL_KEY('q'):
@@ -231,28 +257,28 @@ void process_keypress(void) {
 			write(STDOUT_FILENO, "\x1b[H", 3);
 			exit(0);
 			break;
-		case 'w':
-		case 's':
-		case 'a':
-		case 'd':
+		case ARROW_UP:
+		case ARROW_DOWN:
+		case ARROW_LEFT:
+		case ARROW_RIGHT:
 			move_cursor(c);
 			break;
 	}
 }
 
-void move_cursor(char key)
+void move_cursor(int key)
 {
 	switch (key) {
-		case 'a':
+		case ARROW_LEFT:
 			E.cx--;
 			break;
-		case 'd':
+		case ARROW_RIGHT:
 			E.cx++;
 			break;
-		case 'w':
+		case ARROW_UP:
 			E.cy--;
 			break;
-		case 's':
+		case ARROW_DOWN:
 			E.cy++;
 			break;
 	}
