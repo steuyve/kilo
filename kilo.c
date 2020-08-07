@@ -12,6 +12,15 @@
 /* convert key 'char' to CTRL-char */
 #define CTRL_KEY(k) ((k) & 0x1f) /* bitwise AND with 00011111, setting last 3 bits to 0. */
 
+/*** declarations ***/
+
+void die(const char *);
+void restore_termios_config(void);
+void raw_mode(void);
+char read_key(void);
+void refresh_screen(void);
+void process_keypress(void);
+
 /*** data ***/
 
 struct termios orig_termios;
