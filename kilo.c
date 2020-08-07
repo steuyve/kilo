@@ -128,7 +128,7 @@ void refresh_screen(void)
 	 * J means to erase in display.
 	 * The argument 2 to the J command means clear the entire screen.
 	 */
-	ab_append(&ab, "\x1b[2J", 4); 	/* clear the screen */
+	/* ab_append(&ab, "\x1b[2J", 4); */ 	/* clear the screen */
 	/* H command means to position the cursor.
 	 * Normally takes two arguments [row;colH for (row, col).
 	 */
@@ -190,6 +190,11 @@ void draw_rows(struct abuf *ab)
 	int y;
 	for (y = 0; y < E.screenrows; y++) {
 		ab_append(ab, "~", 1);
+
+		/* K command erases the current line.
+		 * Default argument (0) erases to the right of the cursor.
+		 */
+		ab_append(ab, "\x1b[K", 3);
 		if (y < E.screenrows - 1) ab_append(ab, "\r\n", 2);
 	}
 }
