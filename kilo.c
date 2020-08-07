@@ -7,24 +7,12 @@
 #include <unistd.h> 	/* Standard symbolic constants and types */
 #include <termios.h> 	/* Terminal interface */
 #include <sys/ioctl.h>	/* IO on streams devices */
+#include <string.h>
 
 /*** defines ***/
 
 /* convert key 'char' to CTRL-char */
 #define CTRL_KEY(k) ((k) & 0x1f) /* bitwise AND with 00011111, setting last 3 bits to 0. */
-
-/*** declarations ***/
-
-void die(const char *);
-void restore_termios_config(void);
-void raw_mode(void);
-char read_key(void);
-void refresh_screen(void);
-int get_cursor_pos(int *, int *);
-int get_windowsize(int *, int *);
-void draw_rows(void);
-void process_keypress(void);
-void init_editor(void);
 
 /*** data ***/
 
@@ -35,6 +23,28 @@ struct editor_config {
 };
 
 struct editor_config E;
+
+struct abuf {
+	char *b;
+	int len;
+};
+
+#define ABUF_INIT {NULL, 0}
+
+/*** declarations ***/
+
+void die(const char *);
+void restore_termios_config(void);
+void raw_mode(void);
+char read_key(void);
+void ab_append(struct abuf *, const char *, int);
+void ab_free(struct abuf *);
+void refresh_screen(void);
+int get_cursor_pos(int *, int *);
+int get_windowsize(int *, int *);
+void draw_rows(void);
+void process_keypress(void);
+void init_editor(void);
 
 /*** terminal ***/
 
@@ -80,6 +90,27 @@ char read_key(void)
 		if (nread == -1 && errno != EAGAIN) die("read");
 	}
 	return c;
+}
+
+/*** append buffer ***/
+/* Collect planned writes to a buffer to be written to STDOUT_FILENO all at once. */
+
+void ab_append(struct abuf *ab, const char *s, int len)
+{
+	/* first make sure we have enough space. */
+	char *new = realloc(ab->b, ab->len + len);
+
+	if (new == NULL) return;
+	/* then append given string into new buffer. */
+	memcpy(&new[ab->len], s, len);
+	ab->b = new;
+	ab->len += len;
+}
+
+void ab_free(struct abuf *ab)
+{
+	free(ab->b);
+	ab->len = 0;
 }
 
 /*** output ***/
