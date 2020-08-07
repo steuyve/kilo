@@ -19,6 +19,7 @@ void restore_termios_config(void);
 void raw_mode(void);
 char read_key(void);
 void refresh_screen(void);
+void draw_rows(void);
 void process_keypress(void);
 
 /*** data ***/
@@ -29,7 +30,8 @@ struct termios orig_termios;
 
 void die(const char *s)
 {
-	refresh_screen();
+	write(STDOUT_FILENO, "\x1b[2J", 4);
+	write(STDOUT_FILENO, "\x1b[H", 3);
 	perror(s);
 	exit(1);
 }
@@ -70,6 +72,8 @@ char read_key(void)
 	return c;
 }
 
+/*** output ***/
+
 void refresh_screen(void)
 {
 	/* Write an escape sequence to the terminal.
@@ -80,11 +84,21 @@ void refresh_screen(void)
 	 * The argument 2 to the J command means clear the entire screen.
 	 */
 	write(STDOUT_FILENO, "\x1b[2J", 4); 	/* clear the screen */
-
 	/* H command means to position the cursor.
 	 * Normally takes two arguments [row;colH for (row, col).
 	 */
-	write(STDOUT_FILENO, "\x1b[H", 3);	/* reposition the cursor to position 1;1 */ 
+	write(STDOUT_FILENO, "\x1b[H", 3);	/* reposition the cursor to position 1;1 */
+
+	draw_rows();
+	write(STDOUT_FILENO, "\x1b[H", 3);
+}
+
+void draw_rows(void)
+{
+	int y;
+	for (y = 0; y < 24; y++) {
+		write(STDOUT_FILENO, "~\r\n", 3);
+	}
 }
 
 /*** input ***/
@@ -94,7 +108,8 @@ void process_keypress(void) {
 
 	switch (c) {
 		case CTRL_KEY('q'):
-			refresh_screen();
+			write(STDOUT_FILENO, "\x1b[2J", 4);
+			write(STDOUT_FILENO, "\x1b[H", 3);
 			exit(0);
 			break;
 	}
