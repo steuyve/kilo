@@ -34,10 +34,17 @@ struct editor_config {
 	int cx, cy;
 	int screenrows;
 	int screencols;
+	int numrows;
+	erow row;
 	struct termios orig_termios;
 };
 
 struct editor_config E;
+
+typedef struct erow {
+	int size;
+	char *chars;
+} erow;
 
 typedef struct abuf {
 	char *b;
@@ -330,6 +337,7 @@ void init_editor(void)
 {
 	E.cx = 0;
 	E.cy = 0;
+	E.numrows = 0;
 	if (get_windowsize(&E.screenrows, &E.screencols) == -1) die("get_windowsize");
 }
 
