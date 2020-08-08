@@ -45,7 +45,7 @@ struct editor_config {
 	int screenrows;
 	int screencols;
 	int numrows;
-	erow row;
+	erow *row;	/* pointer to the first element of an array of erows. */
 	struct termios orig_termios;
 };
 
@@ -64,6 +64,7 @@ void die(const char *);
 void restore_termios_config(void);
 void raw_mode(void);
 int read_key(void);
+void append_row(char *, size_t);
 void editor_open(char *);
 void ab_append(abuf *, const char *, int);
 void ab_free(abuf *);
@@ -162,6 +163,20 @@ int read_key(void)
 	}
 }
 
+/*** row operations ***/
+
+void append_row(char *s, size_t len)
+{
+	E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
+
+	int at = E.numrows;
+	E.row[at].size = len;
+	E.row[at].chars = malloc(len + 1);
+	memcpy(E.row[at].chars, s, len);
+	E.row[at].chars[len] = '\0';
+	E.numrows++;
+}
+
 /*** file IO ***/
 
 void editor_open(char *filename)
@@ -172,15 +187,10 @@ void editor_open(char *filename)
 	char *line = NULL;
 	size_t linecap = 0;
 	ssize_t linelen;
-	linelen = getline(&line, &linecap, fp);
-	if (linelen != -1) {
+	while ((linelen = getline(&line, &linecap, fp)) != -1) {
 		while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
 			linelen--;
-		E.row.size = linelen;
-		E.row.chars = malloc(linelen + 1);
-		memcpy(E.row.chars, line, linelen);
-		E.row.chars[linelen] = '\0';
-		E.numrows = 1;
+		append_row(line, linelen);
 	}
 	free(line);
 	fclose(fp);
@@ -302,18 +312,17 @@ void draw_rows(abuf *ab)
 			} else {
 				ab_append(ab, "~", 1);
 			}
-
+		} else {
+			int len = E.row[y].size;
+			if (len > E.screencols) len = E.screencols;
+			ab_append(ab, E.row[y].chars, len);
+		}
 			/* K command erases the current line.
 			 * Default argument (0) erases to the right of the cursor.
 			 */
 			ab_append(ab, "\x1b[K", 3);
 			if (y < E.screenrows - 1) ab_append(ab, "\r\n", 2);
-		} else {
-			int len = E.row.size;
-			if (len > E.screencols) len = E.screencols;
-			ab_append(ab, E.row.chars, len);
-		}
-	}
+		} 
 }
 
 /*** input ***/
@@ -374,6 +383,7 @@ void init_editor(void)
 	E.cx = 0;
 	E.cy = 0;
 	E.numrows = 0;
+	E.row = NULL;
 	if (get_windowsize(&E.screenrows, &E.screencols) == -1) die("get_windowsize");
 }
 
