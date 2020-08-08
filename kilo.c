@@ -7,6 +7,7 @@
 #include <unistd.h> 	/* Standard symbolic constants and types */
 #include <termios.h> 	/* Terminal interface */
 #include <sys/ioctl.h>	/* IO on streams devices */
+#include <sys/types.h>
 #include <string.h>
 
 /*** defines ***/
@@ -30,6 +31,11 @@ enum editor_key {
 	PAGE_DOWN
 };
 
+typedef struct erow {
+	int size;
+	char *chars;
+} erow;
+
 struct editor_config {
 	int cx, cy;
 	int screenrows;
@@ -40,11 +46,6 @@ struct editor_config {
 };
 
 struct editor_config E;
-
-typedef struct erow {
-	int size;
-	char *chars;
-} erow;
 
 typedef struct abuf {
 	char *b;
@@ -59,6 +60,7 @@ void die(const char *);
 void restore_termios_config(void);
 void raw_mode(void);
 int read_key(void);
+void editor_open(void);
 void ab_append(abuf *, const char *, int);
 void ab_free(abuf *);
 void refresh_screen(void);
@@ -154,6 +156,20 @@ int read_key(void)
 	} else {
 		return c;
 	}
+}
+
+/*** file IO ***/
+
+void editor_open(void)
+{
+	char *line = "Hello, world!";
+	ssize_t linelen = 13;
+
+	E.row.size = linelen;
+	E.row.chars = malloc(linelen + 1);
+	memcpy(E.row.chars, line, linelen);
+	E.row.chars[linelen] = '\0';
+	E.numrows = 1;
 }
 
 /*** append buffer ***/
@@ -257,26 +273,32 @@ void draw_rows(abuf *ab)
 {
 	int y;
 	for (y = 0; y < E.screenrows; y++) {
-		if (y == E.screenrows / 3) {
-			char welcome[80];
-			int welcomelen = snprintf(welcome, sizeof(welcome), "Kilo editor -- version %s", KILO_VERSION);
-			if (welcomelen > E.screencols) welcomelen = E.screencols;
-			int padding = (E.screencols - welcomelen) / 2;
-			if (padding) {
+		if (y >= E.numrows) {
+			if (y == E.screenrows / 3) {
+				char welcome[80];
+				int welcomelen = snprintf(welcome, sizeof(welcome), "Kilo editor -- version %s", KILO_VERSION);
+				if (welcomelen > E.screencols) welcomelen = E.screencols;
+				int padding = (E.screencols - welcomelen) / 2;
+				if (padding) {
+					ab_append(ab, "~", 1);
+					padding--;
+				}
+				while (padding--) ab_append(ab, " ", 1);
+				ab_append(ab, welcome, welcomelen);
+			} else {
 				ab_append(ab, "~", 1);
-				padding--;
 			}
-			while (padding--) ab_append(ab, " ", 1);
-			ab_append(ab, welcome, welcomelen);
-		} else {
-			ab_append(ab, "~", 1);
-		}
 
-		/* K command erases the current line.
-		 * Default argument (0) erases to the right of the cursor.
-		 */
-		ab_append(ab, "\x1b[K", 3);
-		if (y < E.screenrows - 1) ab_append(ab, "\r\n", 2);
+			/* K command erases the current line.
+			 * Default argument (0) erases to the right of the cursor.
+			 */
+			ab_append(ab, "\x1b[K", 3);
+			if (y < E.screenrows - 1) ab_append(ab, "\r\n", 2);
+		} else {
+			int len = E.row.size;
+			if (len > E.screencols) len = E.screencols;
+			ab_append(ab, E.row.chars, len);
+		}
 	}
 }
 
@@ -345,6 +367,7 @@ int main(void)
 {
 	raw_mode();
 	init_editor();
+	editor_open();
 
 	while (1) {
 		refresh_screen();
