@@ -396,7 +396,12 @@ void move_cursor(int key)
 			}
 			break;
 		case ARROW_RIGHT:
-			if (row && E.cx < row->size) E.cx++;
+			if (row && E.cx < row->size) {
+				E.cx++;
+			} else if (row && E.cx == row->size) {
+				E.cy++;
+				E.cx = 0;
+			}
 			break;
 		case ARROW_UP:
 			if (E.cy != 0) E.cy--;
