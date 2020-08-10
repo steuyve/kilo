@@ -13,6 +13,8 @@
 #include <sys/ioctl.h>	/* IO on streams devices */
 #include <sys/types.h>
 #include <string.h>
+#include <time.h>
+#include <stdarg.h>	/* For implementing variadic functions - functions with variable number of arguments. */
 
 /*** defines ***/
 
@@ -54,6 +56,8 @@ struct editor_config {
 	int numrows;
 	erow *row;	/* pointer to the first element of an array of erows. */
 	char *filename;
+	char statusmsg[80];
+	time_t statusmsg_time;
 	struct termios orig_termios;
 };
 
@@ -83,6 +87,8 @@ int get_cursor_pos(int *, int *);
 void editor_scroll(void);
 int get_windowsize(int *, int *);
 void draw_status(abuf *);
+void set_status_msg(const char *, ...);
+void draw_status_msg(abuf *);
 void draw_rows(abuf *);
 void move_cursor(int);
 void process_keypress(void);
@@ -299,6 +305,7 @@ void refresh_screen(void)
 
 	draw_rows(&ab);
 	draw_status(&ab);
+	draw_status_msg(&ab);
 
 	char buf[32];
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
@@ -427,6 +434,25 @@ void draw_status(abuf *ab)
 		}
 	}
 	ab_append(ab, "\x1b[m", 3);
+	ab_append(ab, "\r\n", 2);
+}
+
+void set_status_msg(const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
+	va_end(ap);
+	E.statusmsg_time = time(NULL);
+}
+
+void draw_status_msg(abuf *ab)
+{
+	ab_append(ab, "\x1b[K", 3);
+	int msglen = strlen(E.statusmsg);
+	if (msglen > E.screencols) msglen = E.screencols;
+	if(msglen && time(NULL) - E.statusmsg_time < 5)	/* set timeout to 5 seconds. */
+		ab_append(ab, E.statusmsg, msglen);
 }
 
 /*** input ***/
@@ -516,9 +542,11 @@ void init_editor(void)
 	E.numrows = 0;
 	E.row = NULL;
 	E.filename = NULL;
+	// E.statusmsg[0] = '\0';
+	E.statusmsg_time = 0;
 
 	if (get_windowsize(&E.screenrows, &E.screencols) == -1) die("get_windowsize");
-	E.screenrows -= 1;
+	E.screenrows -= 2;
 }
 
 int main(int argc, char *argv[])
@@ -528,6 +556,8 @@ int main(int argc, char *argv[])
 	if (argc >= 2) {
 		editor_open(argv[1]);
 	}
+
+	set_status_msg("HELP: CTRL-Q to quit.");
 
 	while (1) {
 		refresh_screen();
