@@ -18,6 +18,8 @@
 
 #define KILO_VERSION "0.0.1"
 
+#define KILO_TAB_STOP 8
+
 /* convert key 'char' to CTRL-char */
 #define CTRL_KEY(k) ((k) & 0x1f) /* bitwise AND with 00011111, setting last 3 bits to 0. */
 
@@ -37,7 +39,9 @@ enum editor_key {
 
 typedef struct erow {
 	int size;
-	char *chars;
+	int rsize;
+	char *chars;	/* the literal characters in the row. */
+	char *render;	/* the characters to render in this row - for dealing with tabs and nonprintable characters. */
 } erow;
 
 struct editor_config {
@@ -66,6 +70,7 @@ void die(const char *);
 void restore_termios_config(void);
 void raw_mode(void);
 int read_key(void);
+void update_row(erow *);
 void append_row(char *, size_t);
 void editor_open(char *);
 void ab_append(abuf *, const char *, int);
@@ -168,6 +173,33 @@ int read_key(void)
 
 /*** row operations ***/
 
+void update_row(erow *row)
+{
+	int tabs = 0;
+	int j;
+	/* count the number of tabs in the current row. */
+	for (j = 0; j < row->size; j++)
+		if (row->chars[j] == '\t') tabs++;
+
+	free(row->render);
+	row->render = malloc(row->size + tabs * (KILO_TAB_STOP - 1) +  1); /* include space for tabs. */
+
+	int idx = 0;
+	for (j = 0; j < row->size; j++) {
+		/* replace tab character with spaces. */
+		if (row->chars[j] == '\t') {
+			row->render[idx++] = ' ';
+			/* append spaces until we get to a tab stop, which is a column divisible by 8. */
+			while (idx % 8 !=0) row->render[idx++] = ' ';
+		} else {
+			row->render[idx++] = row->chars[j];
+		}
+	}
+
+	row->render[idx] = '\0';
+	row->rsize = idx;
+}
+
 void append_row(char *s, size_t len)
 {
 	E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
@@ -177,6 +209,11 @@ void append_row(char *s, size_t len)
 	E.row[at].chars = malloc(len + 1);
 	memcpy(E.row[at].chars, s, len);
 	E.row[at].chars[len] = '\0';
+
+	E.row[at].rsize = 0;
+	E.row[at].render = NULL;
+	update_row(&E.row[at]);
+
 	E.numrows++;
 }
 
@@ -335,10 +372,10 @@ void draw_rows(abuf *ab)
 				ab_append(ab, "~", 1);
 			}
 		} else {
-			int len = E.row[filerow].size - E.coloff;
+			int len = E.row[filerow].rsize - E.coloff;
 			if (len < 0) len = 0;
 			if (len > E.screencols) len = E.screencols;
-			ab_append(ab, &E.row[filerow].chars[E.coloff], len);
+			ab_append(ab, &E.row[filerow].render[E.coloff], len);
 		}
 			/* K command erases the current line.
 			 * Default argument (0) erases to the right of the cursor.
