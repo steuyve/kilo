@@ -57,6 +57,7 @@ struct editor_config {
 	int screencols;
 	int numrows;
 	erow *row;	/* pointer to the first element of an array of erows. */
+	int dirty;	/* flag for whether file has been modified. */
 	char *filename;
 	char statusmsg[80];
 	time_t statusmsg_time;
@@ -68,7 +69,7 @@ struct editor_config E;
 typedef struct abuf {
 	char *b;
 	int len;
-} abuf ;
+} abuf;
 
 #define ABUF_INIT {NULL, 0}
 
@@ -242,6 +243,7 @@ void append_row(char *s, size_t len)
 	update_row(&E.row[at]);
 
 	E.numrows++;
+	E.dirty++;
 }
 
 void row_insert_char(erow *row, int at, int c)
@@ -252,6 +254,7 @@ void row_insert_char(erow *row, int at, int c)
 	row->size++;
 	row->chars[at] = c;
 	update_row(row);
+	E.dirty++;
 }
 
 /*** editor operations ***/
@@ -284,6 +287,7 @@ void editor_open(char *filename)
 	}
 	free(line);
 	fclose(fp);
+	E.dirty = 0;
 }
 
 char *rows_to_string(int *buflen)
@@ -325,6 +329,7 @@ void editor_save(void)
 			if (write(fd, buf, len) == len) {
 				close(fd);
 				free(buf);
+				E.dirty = 0;
 				set_status_msg("%d bytes written to disk", len);
 				return;
 			}
@@ -497,7 +502,9 @@ void draw_status(abuf *ab)
 	 */
 	ab_append(ab, "\x1b[7m", 4);
 	char status[80], rstatus[80];
-	int len = snprintf(status, sizeof(status), "%.20s - %d lines", E.filename ? E.filename : "[No Name]", E.numrows);
+	int len = snprintf(status, sizeof(status), "%.20s - %d lines %s",
+			E.filename ? E.filename : "[No Name]", E.numrows,
+			E.dirty ? "(modified)" : "");
 	int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d", E.cy + 1, E.numrows);
 	if (len > E.screencols) len = E.screencols;
 	ab_append(ab, status, len);
@@ -635,6 +642,7 @@ void init_editor(void)
 	E.rowoff = 0;
 	E.numrows = 0;
 	E.row = NULL;
+	E.dirty = 0;
 	E.filename = NULL;
 	// E.statusmsg[0] = '\0';
 	E.statusmsg_time = 0;
