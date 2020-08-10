@@ -53,6 +53,7 @@ struct editor_config {
 	int screencols;
 	int numrows;
 	erow *row;	/* pointer to the first element of an array of erows. */
+	char *filename;
 	struct termios orig_termios;
 };
 
@@ -81,6 +82,7 @@ void refresh_screen(void);
 int get_cursor_pos(int *, int *);
 void editor_scroll(void);
 int get_windowsize(int *, int *);
+void draw_status(abuf *);
 void draw_rows(abuf *);
 void move_cursor(int);
 void process_keypress(void);
@@ -234,6 +236,8 @@ void append_row(char *s, size_t len)
 
 void editor_open(char *filename)
 {
+	free(E.filename);
+	E.filename = strdup(filename);
 	FILE *fp = fopen(filename, "r");
 	if (!fp) die("fopen");
 
@@ -294,6 +298,7 @@ void refresh_screen(void)
 	ab_append(&ab, "\x1b[H", 3);	/* reposition the cursor to position 1;1 */
 
 	draw_rows(&ab);
+	draw_status(&ab);
 
 	char buf[32];
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
@@ -397,8 +402,31 @@ void draw_rows(abuf *ab)
 			 * Default argument (0) erases to the right of the cursor.
 			 */
 			ab_append(ab, "\x1b[K", 3);
-			if (y < E.screenrows - 1) ab_append(ab, "\r\n", 2);
+			ab_append(ab, "\r\n", 2);
 		} 
+}
+
+void draw_status(abuf *ab)
+{
+	/* m command means select graphic rendition.
+	 * 7 means invert colors.
+	 */
+	ab_append(ab, "\x1b[7m", 4);
+	char status[80], rstatus[80];
+	int len = snprintf(status, sizeof(status), "%.20s - %d lines", E.filename ? E.filename : "[No Name]", E.numrows);
+	int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d", E.cy + 1, E.numrows);
+	if (len > E.screencols) len = E.screencols;
+	ab_append(ab, status, len);
+	while (len < E.screencols) {
+		if (E.screencols - len == rlen) {
+			ab_append(ab, rstatus, rlen);
+			break;
+		} else {
+			ab_append(ab, " ", 1);
+			len++;
+		}
+	}
+	ab_append(ab, "\x1b[m", 3);
 }
 
 /*** input ***/
@@ -487,7 +515,10 @@ void init_editor(void)
 	E.rowoff = 0;
 	E.numrows = 0;
 	E.row = NULL;
+	E.filename = NULL;
+
 	if (get_windowsize(&E.screenrows, &E.screencols) == -1) die("get_windowsize");
+	E.screenrows -= 1;
 }
 
 int main(int argc, char *argv[])
