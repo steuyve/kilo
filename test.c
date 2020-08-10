@@ -79,8 +79,6 @@ int read_key(void);
 int row_cx_to_rx(erow *, int);
 void update_row(erow *);
 void append_row(char *, size_t);
-void row_insert_char(erow *, int, int);
-void insert_char(int);
 void editor_open(char *);
 void ab_append(abuf *, const char *, int);
 void ab_free(abuf *);
