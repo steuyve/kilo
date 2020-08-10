@@ -319,12 +319,21 @@ void editor_save(void)
 	 * Permissions 0644 means owner of the file can read and write, everyone else read.
 	 */
 	int fd = open(E.filename, O_RDWR | O_CREAT, 0644);
+	if (fd != -1) {
+		/* ftruncate sets the file's size to the specified length. */
+		if (ftruncate(fd, len) != -1) {
+			if (write(fd, buf, len) == len) {
+				close(fd);
+				free(buf);
+				set_status_msg("%d bytes written to disk", len);
+				return;
+			}
+		}
+		close(fd);
+	}
 
-	/* ftruncate sets the file's size to the specified length. */
-	ftruncate(fd, len);
-	write(fd, buf, len);
-	close(fd);
 	free(buf);
+	set_status_msg("Can't save! I/O error: %s", strerror(errno));
 }
 
 /*** append buffer ***/
@@ -642,7 +651,7 @@ int main(int argc, char *argv[])
 		editor_open(argv[1]);
 	}
 
-	set_status_msg("HELP: CTRL-Q to quit.");
+	set_status_msg("HELP: CTRL-S to save | CTRL-Q to quit.");
 
 	while (1) {
 		refresh_screen();
