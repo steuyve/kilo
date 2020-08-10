@@ -15,6 +15,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdarg.h>	/* For implementing variadic functions - functions with variable number of arguments. */
+#include <fcntl.h>	/* for file control. */
 
 /*** defines ***/
 
@@ -83,6 +84,8 @@ void append_row(char *, size_t);
 void row_insert_char(erow *, int, int);
 void insert_char(int);
 void editor_open(char *);
+char *rows_to_string(int *);
+void editor_save(void);
 void ab_append(abuf *, const char *, int);
 void ab_free(abuf *);
 void refresh_screen(void);
@@ -281,6 +284,47 @@ void editor_open(char *filename)
 	}
 	free(line);
 	fclose(fp);
+}
+
+char *rows_to_string(int *buflen)
+{
+	int totlen = 0;
+	int j;
+	for (j = 0; j < E.numrows; j++) {
+		totlen += E.row[j].size + 1;
+	}
+	*buflen = totlen;
+
+	char *buf = malloc(totlen);
+	char *p = buf;
+	for (j = 0; j < E.numrows; j++) {
+		memcpy(p, E.row[j].chars, E.row[j].size);
+		p += E.row[j].size;
+		*p = '\n';
+		p++;
+	}
+
+	return buf;
+}
+
+void editor_save(void)
+{
+	if (E.filename == NULL) return;
+
+	int len;
+	char *buf = rows_to_string(&len);
+
+	/* O_RDWR - means open it for reading and writing.
+	 * O_CREAT - means create a new file if it doesn't already exist.
+	 * Permissions 0644 means owner of the file can read and write, everyone else read.
+	 */
+	int fd = open(E.filename, O_RDWR | O_CREAT, 0644);
+
+	/* ftruncate sets the file's size to the specified length. */
+	ftruncate(fd, len);
+	write(fd, buf, len);
+	close(fd);
+	free(buf);
 }
 
 /*** append buffer ***/
@@ -492,6 +536,9 @@ void process_keypress(void) {
 			write(STDOUT_FILENO, "\x1b[2J", 4);
 			write(STDOUT_FILENO, "\x1b[H", 3);
 			exit(0);
+			break;
+		case CTRL_KEY('s'):
+			editor_save();
 			break;
 		case HOME_KEY:
 			E.cx = 0;
