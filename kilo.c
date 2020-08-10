@@ -46,6 +46,7 @@ typedef struct erow {
 
 struct editor_config {
 	int cx, cy;
+	int rx;
 	int rowoff;	/* row offset - the row of the file the user is currently scrolled to. */
 	int coloff;	/* column offset - the column of the file the cursor is currently on. */
 	int screenrows;
@@ -70,6 +71,7 @@ void die(const char *);
 void restore_termios_config(void);
 void raw_mode(void);
 int read_key(void);
+int row_cx_to_rx(erow *, int);
 void update_row(erow *);
 void append_row(char *, size_t);
 void editor_open(char *);
@@ -172,6 +174,17 @@ int read_key(void)
 }
 
 /*** row operations ***/
+
+int row_cx_to_rx(erow *row, int cx)
+{
+	int rx = 0;
+	int j;
+	for (j = 0; j < cx; j++) {
+		if (row->chars[j] == '\t') rx+= (KILO_TAB_STOP - 1) - (rx % KILO_TAB_STOP);
+		rx++;
+	}
+	return rx;
+}
 
 void update_row(erow *row)
 {
@@ -283,7 +296,7 @@ void refresh_screen(void)
 	draw_rows(&ab);
 
 	char buf[32];
-	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.cx - E.coloff) + 1);
+	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
 	ab_append(&ab, buf, strlen(buf));
 
 	ab_append(&ab, "\x1b[?25h", 6);
@@ -337,17 +350,20 @@ int get_windowsize(int *rows, int *cols)
 
 void editor_scroll(void)
 {
+	E.rx = 0;
+	if (E.cy < E.numrows) E.rx = row_cx_to_rx(&E.row[E.cy], E.cx);
+
 	if (E.cy < E.rowoff) {
 		E.rowoff = E.cy;
 	}
 	if (E.cy >= E.rowoff + E.screenrows) {
 		E.rowoff = E.cy - E.screenrows + 1;
 	}
-	if (E.cx < E.coloff) {
-		E.coloff = E.cx;
+	if (E.rx < E.coloff) {
+		E.coloff = E.rx;
 	}
-	if (E.cx >= E.coloff + E.screencols) {
-		E.coloff = E.cx - E.screencols + 1;
+	if (E.rx >= E.coloff + E.screencols) {
+		E.coloff = E.rx - E.screencols + 1;
 	}
 }
 
@@ -459,6 +475,7 @@ void init_editor(void)
 {
 	E.cx = 0;
 	E.cy = 0;
+	E.rx = 0;
 	E.rowoff = 0;
 	E.numrows = 0;
 	E.row = NULL;
