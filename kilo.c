@@ -28,6 +28,7 @@
 /*** data ***/
 
 enum editor_key {
+	BACKSPACE = 127,	/* ASCII code for backspace. */
 	ARROW_LEFT = 1000,
 	ARROW_RIGHT,
 	ARROW_UP,
@@ -484,6 +485,9 @@ void process_keypress(void) {
 	int c = read_key();
 
 	switch (c) {
+		case '\r':
+			/* TODO */
+			break;
 		case CTRL_KEY('q'):
 			write(STDOUT_FILENO, "\x1b[2J", 4);
 			write(STDOUT_FILENO, "\x1b[H", 3);
@@ -495,6 +499,11 @@ void process_keypress(void) {
 		case END_KEY:
 			if (E.cy < E.numrows)
 				E.cx = E.row[E.cy].size;
+			break;
+		case BACKSPACE:
+		case CTRL_KEY('h'):	/* CTRL-h sends ASCII code 8 which is what the backspace character used to send. */
+		case DEL_KEY:
+			/* TODO */
 			break;
 		case PAGE_UP:
 		case PAGE_DOWN:
@@ -515,6 +524,9 @@ void process_keypress(void) {
 		case ARROW_LEFT:
 		case ARROW_RIGHT:
 			move_cursor(c);
+			break;
+		case CTRL_KEY('l'):	/* CTRL-l traditionally used to refresh the screen in terminal programs. */
+		case '\x1b':
 			break;
 		default:
 			insert_char(c);
