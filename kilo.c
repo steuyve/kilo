@@ -22,6 +22,7 @@
 #define KILO_VERSION "0.0.1"
 
 #define KILO_TAB_STOP 8
+#define KILO_QUIT_TIMES 3
 
 /* convert key 'char' to CTRL-char */
 #define CTRL_KEY(k) ((k) & 0x1f) /* bitwise AND with 00011111, setting last 3 bits to 0. */
@@ -542,6 +543,7 @@ void draw_status_msg(abuf *ab)
 /*** input ***/
 
 void process_keypress(void) {
+	static int quit_times = KILO_QUIT_TIMES;
 	int c = read_key();
 
 	switch (c) {
@@ -549,6 +551,11 @@ void process_keypress(void) {
 			/* TODO */
 			break;
 		case CTRL_KEY('q'):
+			if (E.dirty && quit_times > 0) {
+				set_status_msg("WARNING: File has unsaved changes. Press CTRL-Q %d more times to force quit.", quit_times);
+				quit_times--;
+				return;
+			}
 			write(STDOUT_FILENO, "\x1b[2J", 4);
 			write(STDOUT_FILENO, "\x1b[H", 3);
 			exit(0);
@@ -595,6 +602,8 @@ void process_keypress(void) {
 			insert_char(c);
 			break;
 	}
+
+	quit_times = KILO_QUIT_TIMES;
 }
 
 void move_cursor(int key)
