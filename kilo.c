@@ -84,7 +84,9 @@ int row_cx_to_rx(erow *, int);
 void update_row(erow *);
 void append_row(char *, size_t);
 void row_insert_char(erow *, int, int);
+void row_delete_char(erow *, int);
 void insert_char(int);
+void delete_char(void);
 void editor_open(char *);
 char *rows_to_string(int *);
 void editor_save(void);
@@ -258,6 +260,15 @@ void row_insert_char(erow *row, int at, int c)
 	E.dirty++;
 }
 
+void row_delete_char(erow *row, int at)
+{
+	if (at < 0 || at >= row->size) return;
+	memmove(&row->chars[at], &row->chars[at + 1], row->size - at);
+	row->size--;
+	update_row(row);
+	E.dirty++;
+}
+
 /*** editor operations ***/
 
 void insert_char(int c)
@@ -267,6 +278,17 @@ void insert_char(int c)
 	}
 	row_insert_char(&E.row[E.cy], E.cx, c);
 	E.cx++;
+}
+
+void delete_char(void)
+{
+	if (E.cy == E.numrows) return;
+
+	erow *row = &E.row[E.cy];
+	if (E.cx > 0) {
+		row_delete_char(row, E.cx - 1);
+		E.cx--;
+	}
 }
 
 /*** file IO ***/
@@ -573,7 +595,8 @@ void process_keypress(void) {
 		case BACKSPACE:
 		case CTRL_KEY('h'):	/* CTRL-h sends ASCII code 8 which is what the backspace character used to send. */
 		case DEL_KEY:
-			/* TODO */
+			if (c == DEL_KEY) move_cursor(ARROW_RIGHT);
+			delete_char();
 			break;
 		case PAGE_UP:
 		case PAGE_DOWN:
