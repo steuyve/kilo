@@ -103,6 +103,7 @@ int get_windowsize(int *, int *);
 void draw_status(abuf *);
 void set_status_msg(const char *, ...);
 void draw_status_msg(abuf *);
+char *save_prompt(char *);
 void draw_rows(abuf *);
 void move_cursor(int);
 void process_keypress(void);
@@ -390,7 +391,13 @@ char *rows_to_string(int *buflen)
 
 void editor_save(void)
 {
-	if (E.filename == NULL) return;
+	if (E.filename == NULL) {
+		E.filename = save_prompt("Save as: %s");
+		if (E.filename == NULL) {
+			set_status_msg("Save aborted");
+			return;
+		}
+	}
 
 	int len;
 	char *buf = rows_to_string(&len);
@@ -617,6 +624,41 @@ void draw_status_msg(abuf *ab)
 }
 
 /*** input ***/
+
+char *save_prompt(char *prompt)
+{
+	size_t bufsize = 128;
+	char *buf = malloc(bufsize);
+
+	size_t buflen = 0;
+	buf[0] = '\0';
+
+	while (1) {
+		set_status_msg(prompt, buf);
+		refresh_screen();
+
+		int c = read_key();
+		if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
+			if (buflen != 0) buf[--buflen] = '\0';
+		} else if (c == '\x1b') {
+			set_status_msg("");
+			free(buf);
+			return NULL;
+		} else if (c == '\r') {
+			if (buflen != 0) {
+				set_status_msg("");
+				return buf;
+			}
+		} else if (!iscntrl(c) && c < 128) {
+			if (buflen == bufsize - 1) {
+				bufsize *= 2;
+				buf = realloc(buf, bufsize);
+			}
+			buf[buflen++] = c;
+			buf[buflen] = '\0';
+		}
+	}
+}
 
 void process_keypress(void) {
 	static int quit_times = KILO_QUIT_TIMES;
