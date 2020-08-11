@@ -83,8 +83,11 @@ int read_key(void);
 int row_cx_to_rx(erow *, int);
 void update_row(erow *);
 void append_row(char *, size_t);
+void free_row(erow *);
+void delete_row(int);
 void row_insert_char(erow *, int, int);
 void row_delete_char(erow *, int);
+void row_append_string(erow *, char *, size_t);
 void insert_char(int);
 void delete_char(void);
 void editor_open(char *);
@@ -249,6 +252,21 @@ void append_row(char *s, size_t len)
 	E.dirty++;
 }
 
+void free_row(erow *row)
+{
+	free(row->render);
+	free(row->chars);
+}
+
+void delete_row(int at)
+{
+	if (at < 0 || at >= E.numrows) return;
+	free_row(&E.row[at]);
+	memmove(&E.row[at], &E.row[at + 1], sizeof(erow) * (E.numrows - at - 1));
+	E.numrows--;
+	E.dirty++;
+}
+
 void row_insert_char(erow *row, int at, int c)
 {
 	if (at < 0 || at > row->size) at = row->size;
@@ -269,6 +287,16 @@ void row_delete_char(erow *row, int at)
 	E.dirty++;
 }
 
+void row_append_string(erow *row, char *s, size_t len)
+{
+	row->chars = realloc(row->chars, row->size + len + 1);
+	memcpy(&row->chars[row->size], s, len);
+	row->size += len;
+	row->chars[row->size] = '\0';
+	update_row(row);
+	E.dirty++;
+}
+
 /*** editor operations ***/
 
 void insert_char(int c)
@@ -283,11 +311,17 @@ void insert_char(int c)
 void delete_char(void)
 {
 	if (E.cy == E.numrows) return;
+	if (E.cx == 0 && E.cy == 0) return;
 
 	erow *row = &E.row[E.cy];
 	if (E.cx > 0) {
 		row_delete_char(row, E.cx - 1);
 		E.cx--;
+	} else {
+		E.cx = E.row[E.cy - 1].size;
+		row_append_string(&E.row[E.cy - 1], row->chars, row->size);
+		delete_row(E.cy);
+		E.cy--;
 	}
 }
 
