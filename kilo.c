@@ -82,7 +82,7 @@ void raw_mode(void);
 int read_key(void);
 int row_cx_to_rx(erow *, int);
 void update_row(erow *);
-void append_row(char *, size_t);
+void insert_row(int, char *, size_t);
 void free_row(erow *);
 void delete_row(int);
 void row_insert_char(erow *, int, int);
@@ -90,6 +90,7 @@ void row_delete_char(erow *, int);
 void row_append_string(erow *, char *, size_t);
 void insert_char(int);
 void delete_char(void);
+void insert_newline(void);
 void editor_open(char *);
 char *rows_to_string(int *);
 void editor_save(void);
@@ -234,11 +235,13 @@ void update_row(erow *row)
 	row->rsize = idx;
 }
 
-void append_row(char *s, size_t len)
+void insert_row(int at, char *s, size_t len)
 {
-	E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
+	if (at < 0 || at > E.numrows) return;
 
-	int at = E.numrows;
+	E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
+	memmove(&E.row[at + 1], &E.row[at], sizeof(erow) * (E.numrows - at));
+
 	E.row[at].size = len;
 	E.row[at].chars = malloc(len + 1);
 	memcpy(E.row[at].chars, s, len);
@@ -302,7 +305,7 @@ void row_append_string(erow *row, char *s, size_t len)
 void insert_char(int c)
 {
 	if (E.cy == E.numrows) {
-		append_row("", 0);
+		insert_row(E.numrows, "", 0);
 	}
 	row_insert_char(&E.row[E.cy], E.cx, c);
 	E.cx++;
@@ -325,6 +328,23 @@ void delete_char(void)
 	}
 }
 
+void insert_newline(void)
+{
+	if (E.cx == 0) {
+		insert_row(E.cy, "", 0);
+	} else {
+		erow *row = &E.row[E.cy];
+		insert_row(E.cy + 1, &row->chars[E.cx], row->size - E.cx);
+		row = &E.row[E.cy];
+		row->size = E.cx;
+		row->chars[row->size] = '\0';
+		update_row(row);
+	}
+
+	E.cy++;
+	E.cx = 0;
+}
+
 /*** file IO ***/
 
 void editor_open(char *filename)
@@ -340,7 +360,7 @@ void editor_open(char *filename)
 	while ((linelen = getline(&line, &linecap, fp)) != -1) {
 		while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
 			linelen--;
-		append_row(line, linelen);
+		insert_row(E.numrows, line, linelen);
 	}
 	free(line);
 	fclose(fp);
@@ -604,7 +624,7 @@ void process_keypress(void) {
 
 	switch (c) {
 		case '\r':
-			/* TODO */
+			insert_newline();
 			break;
 		case CTRL_KEY('q'):
 			if (E.dirty && quit_times > 0) {
