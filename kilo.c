@@ -95,6 +95,7 @@ void insert_newline(void);
 void editor_open(char *);
 char *rows_to_string(int *);
 void editor_save(void);
+void find_callback(char *, int);
 void editor_find(void);
 void ab_append(abuf *, const char *, int);
 void ab_free(abuf *);
@@ -442,10 +443,11 @@ void editor_save(void)
 
 /*** find ***/
 
-void editor_find(void)
+void find_callback(char *query, int key)
 {
-	char *query = editor_prompt("Search: %s (Esc to cancel)", NULL);
-	if (query == NULL) return;
+	if (key == '\r' || key == '\x1b') {
+		return;
+	}
 
 	int i;
 	for (i = 0; i < E.numrows; i++) {
@@ -461,8 +463,15 @@ void editor_find(void)
 			break;
 		}
 	}
+}
 
-	free(query);
+void editor_find(void)
+{
+	char *query = editor_prompt("Search: %s (ESC to cancel)", find_callback);
+	
+	if (query) {
+		free(query);
+	}
 }
 
 /*** append buffer ***/
