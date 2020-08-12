@@ -103,7 +103,7 @@ int get_windowsize(int *, int *);
 void draw_status(abuf *);
 void set_status_msg(const char *, ...);
 void draw_status_msg(abuf *);
-char *save_prompt(char *);
+char *editor_prompt(char *);
 void draw_rows(abuf *);
 void move_cursor(int);
 void process_keypress(void);
@@ -392,7 +392,7 @@ char *rows_to_string(int *buflen)
 void editor_save(void)
 {
 	if (E.filename == NULL) {
-		E.filename = save_prompt("Save as: %s");
+		E.filename = editor_prompt("Save as: %s");
 		if (E.filename == NULL) {
 			set_status_msg("Save aborted");
 			return;
@@ -625,7 +625,7 @@ void draw_status_msg(abuf *ab)
 
 /*** input ***/
 
-char *save_prompt(char *prompt)
+char *editor_prompt(char *prompt)
 {
 	size_t bufsize = 128;
 	char *buf = malloc(bufsize);
@@ -660,7 +660,8 @@ char *save_prompt(char *prompt)
 	}
 }
 
-void process_keypress(void) {
+void process_keypress(void)
+{
 	static int quit_times = KILO_QUIT_TIMES;
 	int c = read_key();
 
