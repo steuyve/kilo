@@ -105,7 +105,7 @@ int get_windowsize(int *, int *);
 void draw_status(abuf *);
 void set_status_msg(const char *, ...);
 void draw_status_msg(abuf *);
-char *editor_prompt(char *);
+char *editor_prompt(char *, void (*callback)(char *, int));
 void draw_rows(abuf *);
 void move_cursor(int);
 void process_keypress(void);
@@ -407,7 +407,7 @@ char *rows_to_string(int *buflen)
 void editor_save(void)
 {
 	if (E.filename == NULL) {
-		E.filename = editor_prompt("Save as: %s");
+		E.filename = editor_prompt("Save as: %s", NULL);
 		if (E.filename == NULL) {
 			set_status_msg("Save aborted");
 			return;
@@ -444,7 +444,7 @@ void editor_save(void)
 
 void editor_find(void)
 {
-	char *query = editor_prompt("Search: %s (Esc to cancel)");
+	char *query = editor_prompt("Search: %s (Esc to cancel)", NULL);
 	if (query == NULL) return;
 
 	int i;
@@ -665,7 +665,7 @@ void draw_status_msg(abuf *ab)
 
 /*** input ***/
 
-char *editor_prompt(char *prompt)
+char *editor_prompt(char *prompt, void (*callback)(char *, int))
 {
 	size_t bufsize = 128;
 	char *buf = malloc(bufsize);
@@ -682,11 +682,13 @@ char *editor_prompt(char *prompt)
 			if (buflen != 0) buf[--buflen] = '\0';
 		} else if (c == '\x1b') {
 			set_status_msg("");
+			if (callback) callback(buf, c);
 			free(buf);
 			return NULL;
 		} else if (c == '\r') {
 			if (buflen != 0) {
 				set_status_msg("");
+				if (callback) callback(buf, c);
 				return buf;
 			}
 		} else if (!iscntrl(c) && c < 128) {
@@ -697,6 +699,8 @@ char *editor_prompt(char *prompt)
 			buf[buflen++] = c;
 			buf[buflen] = '\0';
 		}
+
+		if (callback) callback(buf, c);
 	}
 }
 
