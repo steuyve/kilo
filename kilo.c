@@ -81,6 +81,7 @@ void restore_termios_config(void);
 void raw_mode(void);
 int read_key(void);
 int row_cx_to_rx(erow *, int);
+int row_rx_to_cx(erow *, int);
 void update_row(erow *);
 void insert_row(int, char *, size_t);
 void free_row(erow *);
@@ -94,6 +95,7 @@ void insert_newline(void);
 void editor_open(char *);
 char *rows_to_string(int *);
 void editor_save(void);
+void editor_find(void);
 void ab_append(abuf *, const char *, int);
 void ab_free(abuf *);
 void refresh_screen(void);
@@ -207,6 +209,19 @@ int row_cx_to_rx(erow *row, int cx)
 		rx++;
 	}
 	return rx;
+}
+
+int row_rx_to_cx(erow *row, int rx)
+{
+	int cur_rx = 0;
+	int cx;
+	for (cx = 0; cx < row->size; cx++) {
+		if (row->chars[cx] == '\t') cur_rx += (KILO_TAB_STOP - 1) - (cur_rx % KILO_TAB_STOP);
+		cur_rx++;
+
+		if (cur_rx > rx) return cx;
+	}
+	return cx;
 }
 
 void update_row(erow *row)
@@ -423,6 +438,31 @@ void editor_save(void)
 
 	free(buf);
 	set_status_msg("Can't save! I/O error: %s", strerror(errno));
+}
+
+/*** find ***/
+
+void editor_find(void)
+{
+	char *query = editor_prompt("Search: %s (Esc to cancel)");
+	if (query == NULL) return;
+
+	int i;
+	for (i = 0; i < E.numrows; i++) {
+		erow *row = &E.row[i];
+		/* strstr() comes from <string.h>.
+		 * Checks if query is a substring of row->render.
+		 * Returns NULL if there is no match, and a pointer to the maatching substring. */
+		char *match = strstr(row->render, query);
+		if (match) {
+			E.cy = i;
+			E.cx = row_rx_to_cx(row, match - row->render);
+			E.rowoff = E.numrows;
+			break;
+		}
+	}
+
+	free(query);
 }
 
 /*** append buffer ***/
@@ -689,6 +729,9 @@ void process_keypress(void)
 			if (E.cy < E.numrows)
 				E.cx = E.row[E.cy].size;
 			break;
+		case CTRL_KEY('f'):
+			editor_find();
+			break;
 		case BACKSPACE:
 		case CTRL_KEY('h'):	/* CTRL-h sends ASCII code 8 which is what the backspace character used to send. */
 		case DEL_KEY:
@@ -788,7 +831,7 @@ int main(int argc, char *argv[])
 		editor_open(argv[1]);
 	}
 
-	set_status_msg("HELP: CTRL-S to save | CTRL-Q to quit.");
+	set_status_msg("HELP: CTRL-S to save | CTRL-Q to quit | CTRL-F to find.");
 
 	while (1) {
 		refresh_screen();
