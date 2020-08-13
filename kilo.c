@@ -445,19 +445,46 @@ void editor_save(void)
 
 void find_callback(char *query, int key)
 {
+	static int last_match = -1;
+	static int direction = 1;
+
 	if (key == '\r' || key == '\x1b') {
+		/* reset values before canceling. */
+		last_match = -1;
+		direction = 1;
 		return;
+	} else if (key == ARROW_RIGHT || key == ARROW_DOWN) {
+		direction = 1;
+	} else if (key == ARROW_LEFT || key == ARROW_UP) {
+		direction = -1;
+	} else {
+		last_match = -1;
+		direction = 1;
 	}
 
+	if (last_match == -1) direction= 1;
+	/* jump to the the row of the last match so we start searching from there. */
+	int current = last_match;
 	int i;
 	for (i = 0; i < E.numrows; i++) {
-		erow *row = &E.row[i];
+		/* one step forward/backward according to the direction. */
+		current += direction;
+		/* wrap around by jumping to the end of the file. */
+		if (current == -1) {
+			current = E.numrows - 1;
+		} else if (current == E.numrows) {
+			current = 0;
+		}
+		erow *row = &E.row[current];
 		/* strstr() comes from <string.h>.
 		 * Checks if query is a substring of row->render.
 		 * Returns NULL if there is no match, and a pointer to the maatching substring. */
 		char *match = strstr(row->render, query);
 		if (match) {
-			E.cy = i;
+			/* update last match. */
+			last_match = current;
+			/* jump to current match row. */
+			E.cy = current;
 			E.cx = row_rx_to_cx(row, match - row->render);
 			E.rowoff = E.numrows;
 			break;
