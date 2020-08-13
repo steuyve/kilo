@@ -669,16 +669,23 @@ void draw_rows(abuf *ab)
 			if (len > E.screencols) len = E.screencols;
 			char *c = &E.row[filerow].render[E.coloff];
 			unsigned char *hl = &E.row[filerow].hl[E.coloff];
+			int current_color = -1;
 			int j;
 			for (j = 0; j < len; j++) {
 				if (hl[j] == HL_NORMAL) {
-					ab_append(ab, "\x1b[39m", 5);
+					if (current_color != -1) {
+						ab_append(ab, "\x1b[39m", 5);
+						ab_append(ab, &c[j], 1);
+					}
 					ab_append(ab, &c[j], 1);
 				} else {
 					int color = syntax_to_color(hl[j]);
-					char buf[16];
-					int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
-					ab_append(ab, buf, clen);
+					if (color != current_color) {
+						current_color = color;
+						char buf[16];
+						int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+						ab_append(ab, buf, clen);
+					}
 					ab_append(ab, &c[j], 1);
 				}
 			}
