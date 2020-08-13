@@ -42,11 +42,17 @@ enum editor_key {
 	PAGE_DOWN
 };
 
+enum editor_highlight {
+	HL_NORMAL = 0,
+	HL_NUMBER
+};
+
 typedef struct erow {
 	int size;
 	int rsize;
-	char *chars;	/* the literal characters in the row. */
-	char *render;	/* the characters to render in this row - for dealing with tabs and nonprintable characters. */
+	char *chars;		/* the literal characters in the row. */
+	char *render;		/* the characters to render in this row - for dealing with tabs and nonprintable characters. */
+	unsigned char *hl;	/* store the highlighting information of this row. */
 } erow;
 
 struct editor_config {
@@ -106,6 +112,8 @@ int get_windowsize(int *, int *);
 void draw_status(abuf *);
 void set_status_msg(const char *, ...);
 void draw_status_msg(abuf *);
+void update_syntax(erow *);
+int syntax_to_color(int);
 char *editor_prompt(char *, void (*callback)(char *, int));
 void draw_rows(abuf *);
 void move_cursor(int);
@@ -250,6 +258,8 @@ void update_row(erow *row)
 
 	row->render[idx] = '\0';
 	row->rsize = idx;
+
+	update_syntax(row);
 }
 
 void insert_row(int at, char *s, size_t len)
@@ -266,6 +276,7 @@ void insert_row(int at, char *s, size_t len)
 
 	E.row[at].rsize = 0;
 	E.row[at].render = NULL;
+	E.row[at].hl = NULL;
 	update_row(&E.row[at]);
 
 	E.numrows++;
@@ -276,6 +287,7 @@ void free_row(erow *row)
 {
 	free(row->render);
 	free(row->chars);
+	free(row->hl);
 }
 
 void delete_row(int at)
@@ -655,7 +667,22 @@ void draw_rows(abuf *ab)
 			int len = E.row[filerow].rsize - E.coloff;
 			if (len < 0) len = 0;
 			if (len > E.screencols) len = E.screencols;
-			ab_append(ab, &E.row[filerow].render[E.coloff], len);
+			char *c = &E.row[filerow].render[E.coloff];
+			unsigned char *hl = &E.row[filerow].hl[E.coloff];
+			int j;
+			for (j = 0; j < len; j++) {
+				if (hl[j] == HL_NORMAL) {
+					ab_append(ab, "\x1b[39m", 5);
+					ab_append(ab, &c[j], 1);
+				} else {
+					int color = syntax_to_color(hl[j]);
+					char buf[16];
+					int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+					ab_append(ab, buf, clen);
+					ab_append(ab, &c[j], 1);
+				}
+			}
+			ab_append(ab, "\x1b[39m", 5);
 		}
 			/* K command erases the current line.
 			 * Default argument (0) erases to the right of the cursor.
@@ -707,6 +734,30 @@ void draw_status_msg(abuf *ab)
 	if (msglen > E.screencols) msglen = E.screencols;
 	if(msglen && time(NULL) - E.statusmsg_time < 5)	/* set timeout to 5 seconds. */
 		ab_append(ab, E.statusmsg, msglen);
+}
+
+/*** syntax highlighting ***/
+
+void update_syntax(erow *row)
+{
+	row->hl = realloc(row->hl, row->rsize);
+	memset(row->hl, HL_NORMAL, row->rsize);
+
+	int i;
+	for (i = 0; i < row->rsize; i++) {
+		if (isdigit(row->render[i])) {
+			row->hl[i] = HL_NUMBER;
+		}
+	}
+}
+
+int syntax_to_color(int hl) {
+	switch(hl) {
+		case HL_NUMBER:
+			return 31;
+		default:
+			return 37;
+	}
 }
 
 /*** input ***/
