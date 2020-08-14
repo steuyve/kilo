@@ -44,7 +44,8 @@ enum editor_key {
 
 enum editor_highlight {
 	HL_NORMAL = 0,
-	HL_NUMBER
+	HL_NUMBER,
+	HL_MATCH
 };
 
 typedef struct erow {
@@ -761,7 +762,9 @@ void update_syntax(erow *row)
 int syntax_to_color(int hl) {
 	switch(hl) {
 		case HL_NUMBER:
-			return 31;
+			return 31;	/* red. */
+		case HL_MATCH:
+			return 34;	/* blue. */
 		default:
 			return 37;
 	}
